@@ -1,0 +1,9 @@
+aiogram
+aiohttp
+aiofiles
+pycountry
+firebase-admin
+urllib3
+requests
+pyopenssl
+certifi
