@@ -8,7 +8,7 @@ db_ref = None
 def initialize_firebase():
     global db_ref
     try:
-        cred = credentials.Certificate("firebase-credentials.json")
+        cred = credentials.Certificate("/firebase-credentials.json")
         logger.info("Initializing Firebase from virtual file.")
 
         try:
