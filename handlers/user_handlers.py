@@ -6,7 +6,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 import config
 from keyboards.inline_keyboards import get_user_start_keyboard, get_admin_start_keyboard
-from database.status_handler import save_user_start_message, get_user_start_message
+from database.status_handler import save_user_start_message, get_user_start_message, get_bot_status
 from utils.message_utils import send_or_edit_message
 
 router = Router()
@@ -23,15 +23,28 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
         pass
 
     existing_message_id = get_user_start_message(user_id)
+    
+    is_online = get_bot_status()
+    status_emoji = "✅" if is_online else "❌"
+    status_text = "مُتصل وجاهز للعمل" if is_online else "مُتوقف للصيانة"
 
     if user_id in config.ADMIN_IDS:
-        text = "👑 **Welcome, Admin!**\n\nThis is your control panel. You can manage the bot's status and communicate with users."
+        text = (
+            "👑 **لوحة تحكم المشرف (Admin Panel)**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "مرحباً بك أيها المشرف، يمكنك إدارة حالة البوت والتحكم في عمليات الفحص والإذاعة من هنا."
+        )
         keyboard = get_admin_start_keyboard()
     else:
         text = (
-            "👋 **Welcome to the Account Checker Bot!**\n\n"
-            "I am here to assist you. You can check the bot's operational status below.\n\n"
-            "*Please note: This bot is for demonstration purposes.*"
+            f"👋 **أهلاً بك يا {message.from_user.full_name}!**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "نحن هنا لخدمتك. يمكنك استخدام الأزرار أدناه للبدء في فحص الحسابات أو فتح واجهة الويب الخاصة بنا.\n\n"
+            "*ملاحظة: البوت يعمل بكفاءة عالية لضمان أفضل النتائج.*"
         )
         keyboard = get_user_start_keyboard()
 
@@ -48,11 +61,33 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
 
 @router.callback_query(F.data == "check_status")
 async def handle_status_check(callback: types.CallbackQuery):
-    await callback.answer("Refreshing status...", show_alert=False)
+    await callback.answer("يتم تحديث الحالة...", show_alert=False)
     
-    keyboard = get_user_start_keyboard() if callback.from_user.id not in config.ADMIN_IDS else get_admin_start_keyboard()
-    
+    is_online = get_bot_status()
+    status_emoji = "✅" if is_online else "❌"
+    status_text = "مُتصل وجاهز للعمل" if is_online else "مُتوقف للصيانة"
+
+    if callback.from_user.id in config.ADMIN_IDS:
+        text = (
+            "👑 **لوحة تحكم المشرف (Admin Panel)**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "مرحباً بك أيها المشرف، يمكنك إدارة حالة البوت والتحكم في عمليات الفحص والإذاعة من هنا."
+        )
+        keyboard = get_admin_start_keyboard()
+    else:
+        text = (
+            f"👋 **أهلاً بك يا {callback.from_user.full_name}!**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "نحن هنا لخدمتك. يمكنك استخدام الأزرار أدناه للبدء في فحص الحسابات أو فتح واجهة الويب الخاصة بنا.\n\n"
+            "*ملاحظة: البوت يعمل بكفاءة عالية لضمان أفضل النتائج.*"
+        )
+        keyboard = get_user_start_keyboard()
+        
     try:
-        await callback.message.edit_reply_markup(reply_markup=keyboard)
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
     except TelegramBadRequest:
         pass

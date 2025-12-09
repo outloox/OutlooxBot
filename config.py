@@ -17,6 +17,7 @@ BACKUP_FILE_PATH = "valid_accounts_backup.txt"
 REQUEST_TIMEOUT = 25
 CONCURRENT_TASKS = 10
 ANTISPAM_DELAY = 5
+PROXY_CHECK_TIMEOUT = 7
 
 COMMON_COUNTRY_NAMES = {
     "Korea, Republic of": "South Korea", "Iran, Islamic Republic of": "Iran",
