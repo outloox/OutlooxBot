@@ -9,6 +9,7 @@ from aiogram.filters import Filter
 import config
 from keyboards.inline_keyboards import get_admin_start_keyboard
 from database.status_handler import set_bot_status, get_bot_status, get_all_user_message_ids
+from handlers.user_handlers import get_start_message_text
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -30,15 +31,23 @@ async def toggle_bot_status(callback: types.CallbackQuery, bot: Bot):
     new_status = not current_status
     set_bot_status(new_status)
     
-    await callback.answer(f"تم تعيين الحالة إلى {'مُتصل' if new_status else 'مُتوقف'}", show_alert=True)
+    await callback.answer(f"Status set to {'ONLINE' if new_status else 'OFFLINE'}", show_alert=True)
     
-    await callback.message.edit_reply_markup(reply_markup=get_admin_start_keyboard())
+    # Update the admin's own message immediately
+    text = get_start_message_text(callback.from_user.id, callback.from_user.full_name)
+    keyboard = get_admin_start_keyboard()
     
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    except TelegramBadRequest as e:
+        if "message is not modified" not in str(e):
+            raise e
+    
+    # Update all other users in the background
     asyncio.create_task(update_all_users(bot))
 
 async def update_all_users(bot: Bot):
     from keyboards.inline_keyboards import get_user_start_keyboard, get_admin_start_keyboard
-    from database.status_handler import get_bot_status
     
     all_users = get_all_user_message_ids()
     if not all_users:
@@ -46,36 +55,15 @@ async def update_all_users(bot: Bot):
 
     logger.info(f"Starting status update for {len(all_users)} users.")
     
-    is_online = get_bot_status()
-    status_emoji = "✅" if is_online else "❌"
-    status_text = "مُتصل وجاهز للعمل" if is_online else "مُتوقف للصيانة"
-
     for user_id_str, data in all_users.items():
         user_id = int(user_id_str)
         message_id = data.get('start_message_id')
         
-        if not message_id:
+        if not message_id or user_id in config.ADMIN_IDS:
             continue
         
-        if user_id in config.ADMIN_IDS:
-            keyboard = get_admin_start_keyboard()
-            text = (
-                "👑 **لوحة تحكم المشرف (Admin Panel)**\n"
-                "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-                f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-                "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-                "مرحباً بك أيها المشرف، يمكنك إدارة حالة البوت والتحكم في عمليات الفحص والإذاعة من هنا."
-            )
-        else:
-            keyboard = get_user_start_keyboard()
-            text = (
-                f"👋 **أهلاً بك!**\n"
-                "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-                f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-                "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-                "نحن هنا لخدمتك. يمكنك استخدام الأزرار أدناه للبدء في فحص الحسابات أو فتح واجهة الويب الخاصة بنا.\n\n"
-                "*ملاحظة: البوت يعمل بكفاءة عالية لضمان أفضل النتائج.*"
-            )
+        keyboard = get_user_start_keyboard()
+        text = get_start_message_text(user_id, "") # Full name is not available here, so we use an empty string
         
         try:
             await bot.edit_message_text(
@@ -86,6 +74,10 @@ async def update_all_users(bot: Bot):
                 parse_mode="Markdown"
             )
             await asyncio.sleep(0.1)
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e):
+                logger.warning(f"Could not update user {user_id}: {e}")
+            continue
         except Exception as e:
             logger.warning(f"Could not update user {user_id}: {e}")
             continue
@@ -93,7 +85,7 @@ async def update_all_users(bot: Bot):
 
 @router.callback_query(F.data == "broadcast", IsAdmin())
 async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("الرجاء إرسال الرسالة التي تود بثها لجميع المستخدمين. يمكنك استخدام تنسيق Markdown.")
+    await callback.message.answer("Please send the message you want to broadcast to all users. Markdown is supported.")
     await state.set_state(BroadcastState.awaiting_message)
     await callback.answer()
 
@@ -103,10 +95,10 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
     
     all_users = get_all_user_message_ids()
     if not all_users:
-        await message.answer("⚠️ لا يوجد مستخدمون مسجلون في قاعدة البيانات لإرسال الإذاعة إليهم.")
+        await message.answer("⚠️ No registered users found to broadcast to.")
         return
         
-    await message.answer(f"بدء عملية البث لـ {len(all_users)} مستخدم...")
+    await message.answer(f"Starting broadcast to {len(all_users)} users...")
     
     success_count = 0
     fail_count = 0
@@ -124,4 +116,4 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
         except TelegramBadRequest:
             fail_count += 1
             
-    await message.answer(f"📢 اكتمل البث!\n\n✅ تم الإرسال إلى: {success_count} مستخدم\n❌ فشل الإرسال إلى: {fail_count} مستخدم")
+    await message.answer(f"📢 Broadcast Complete!\n\n✅ Sent to: {success_count} users\n❌ Failed for: {fail_count} users")

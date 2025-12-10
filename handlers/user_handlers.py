@@ -18,6 +18,30 @@ logger = logging.getLogger(__name__)
 class AccountCheckStates(StatesGroup):
     awaiting_accounts = State()
     
+def get_start_message_text(user_id: int, full_name: str) -> str:
+    is_online = get_bot_status()
+    status_emoji = "✅" if is_online else "❌"
+    status_text = "Online & Ready" if is_online else "Offline for Maintenance"
+    
+    if user_id in config.ADMIN_IDS:
+        text = (
+            "👑 **Admin Control Panel**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **Bot Status:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "Welcome, Admin. Manage bot status, checking operations, and broadcasting from here."
+        )
+    else:
+        text = (
+            f"👋 **Hello, {full_name}!**\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"🤖 **Bot Status:** {status_emoji} *{status_text}*\n"
+            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
+            "Use the buttons below to start checking accounts or access our WebApp.\n\n"
+            "*Note: The bot is designed for high-efficiency account checking.*"
+        )
+    return text
+
 @router.message(CommandStart())
 async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
     await state.clear()
@@ -30,29 +54,8 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
 
     existing_message_id = get_user_start_message(user_id)
     
-    is_online = get_bot_status()
-    status_emoji = "✅" if is_online else "❌"
-    status_text = "مُتصل وجاهز للعمل" if is_online else "مُتوقف للصيانة"
-
-    if user_id in config.ADMIN_IDS:
-        text = (
-            "👑 **لوحة تحكم المشرف (Admin Panel)**\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "مرحباً بك أيها المشرف، يمكنك إدارة حالة البوت والتحكم في عمليات الفحص والإذاعة من هنا."
-        )
-        keyboard = get_admin_start_keyboard()
-    else:
-        text = (
-            f"👋 **أهلاً بك يا {message.from_user.full_name}!**\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "نحن هنا لخدمتك. يمكنك استخدام الأزرار أدناه للبدء في فحص الحسابات أو فتح واجهة الويب الخاصة بنا.\n\n"
-            "*ملاحظة: البوت يعمل بكفاءة عالية لضمان أفضل النتائج.*"
-        )
-        keyboard = get_user_start_keyboard()
+    text = get_start_message_text(user_id, message.from_user.full_name)
+    keyboard = get_admin_start_keyboard() if user_id in config.ADMIN_IDS else get_user_start_keyboard()
 
     sent_message = await send_or_edit_message(
         bot=bot,
@@ -67,53 +70,37 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
 
 @router.callback_query(F.data == "check_status")
 async def handle_status_check(callback: types.CallbackQuery):
-    await callback.answer("يتم تحديث الحالة...", show_alert=False)
+    # This callback is now only used to refresh the message content
+    await callback.answer("Refreshing status...", show_alert=False)
     
-    is_online = get_bot_status()
-    status_emoji = "✅" if is_online else "❌"
-    status_text = "مُتصل وجاهز للعمل" if is_online else "مُتوقف للصيانة"
-
-    if callback.from_user.id in config.ADMIN_IDS:
-        text = (
-            "👑 **لوحة تحكم المشرف (Admin Panel)**\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "مرحباً بك أيها المشرف، يمكنك إدارة حالة البوت والتحكم في عمليات الفحص والإذاعة من هنا."
-        )
-        keyboard = get_admin_start_keyboard()
-    else:
-        text = (
-            f"👋 **أهلاً بك يا {callback.from_user.full_name}!**\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"🤖 **حالة البوت:** {status_emoji} *{status_text}*\n"
-            "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "نحن هنا لخدمتك. يمكنك استخدام الأزرار أدناه للبدء في فحص الحسابات أو فتح واجهة الويب الخاصة بنا.\n\n"
-            "*ملاحظة: البوت يعمل بكفاءة عالية لضمان أفضل النتائج.*"
-        )
-        keyboard = get_user_start_keyboard()
+    user_id = callback.from_user.id
+    text = get_start_message_text(user_id, callback.from_user.full_name)
+    keyboard = get_admin_start_keyboard() if user_id in config.ADMIN_IDS else get_user_start_keyboard()
         
     try:
+        # Use edit_message_text to ensure the text is updated, which is the primary goal
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
-    except TelegramBadRequest:
-        pass
+    except TelegramBadRequest as e:
+        # Ignore "message is not modified" error
+        if "message is not modified" not in str(e):
+            raise e
 
 @router.callback_query(F.data.in_({"check_accounts_no_save", "check_accounts_save"}))
 async def start_account_check(callback: types.CallbackQuery, state: FSMContext):
     if not get_bot_status():
-        await callback.answer("⚠️ البوت مُتوقف حالياً للصيانة. الرجاء المحاولة لاحقاً.", show_alert=True)
+        await callback.answer("⚠️ Bot is currently offline for maintenance.", show_alert=True)
         return
 
     save_to_db = callback.data == "check_accounts_save"
     
     await state.update_data(save_to_db=save_to_db)
     
-    action_text = "وحفظها في قاعدة البيانات" if save_to_db else "دون حفظها"
+    action_text = "and save to database" if save_to_db else "without saving"
     
     await callback.message.answer(
-        f"✅ **وضع الفحص مُفعل!**\n\n"
-        f"الرجاء إرسال الحسابات الآن بالتنسيق التالي (بريد:كلمة مرور)، يمكن إرسال عدة حسابات في رسالة واحدة.\n\n"
-        f"سيتم فحص الحسابات {action_text}."
+        f"✅ **Check Mode Activated!**\n\n"
+        f"Please send accounts now in the format (email:password). Multiple accounts can be sent in one message.\n\n"
+        f"Accounts will be checked {action_text}."
     )
     await state.set_state(AccountCheckStates.awaiting_accounts)
     await callback.answer()
@@ -126,12 +113,12 @@ async def process_accounts(message: types.Message, state: FSMContext):
     accounts = re.findall(r'([\w\.-]+@[\w\.-]+\.[\w\.-]+):(.+)', message.text)
     
     if not accounts:
-        await message.reply("❌ **تنسيق خاطئ!**\n\nالرجاء إرسال الحسابات بالتنسيق الصحيح: `بريد:كلمة مرور`.")
+        await message.reply("❌ **Invalid Format!**\n\nPlease send accounts in the correct format: `email:password`.")
         return
 
     await state.clear()
     
-    status_msg = await message.reply(f"⏳ **بدء الفحص لـ {len(accounts)} حساب...**")
+    status_msg = await message.reply(f"⏳ **Starting check for {len(accounts)} accounts...**")
     
     tasks = []
     for email, password in accounts:
@@ -139,7 +126,7 @@ async def process_accounts(message: types.Message, state: FSMContext):
         
     await asyncio.gather(*tasks)
     
-    await status_msg.edit_text("✅ **اكتمل الفحص!**\n\nتم إرسال النتائج في رسائل منفصلة.", reply_markup=None)
+    await status_msg.edit_text("✅ **Check Complete!**\n\nResults have been sent in separate messages.", reply_markup=None)
 
 async def process_single_account(email: str, password: str, save_to_db: bool, chat_id: int, status_message_id: int):
     details, error = await check_account(email, password)
@@ -157,9 +144,9 @@ async def process_single_account(email: str, password: str, save_to_db: bool, ch
     else:
         await Bot.get_current().send_message(
             chat_id,
-            f"❌ **فشل فحص الحساب**\n\n"
-            f"📧 **البريد:** `{email}`\n"
-            f"🔑 **كلمة المرور:** `{password}`\n"
-            f"🛑 **السبب:** {error}",
+            f"❌ **Account Check Failed**\n\n"
+            f"📧 **Email:** `{email}`\n"
+            f"🔑 **Password:** `{password}`\n"
+            f"🛑 **Reason:** {error}",
             parse_mode="Markdown"
         )
