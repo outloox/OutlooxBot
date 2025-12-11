@@ -7,7 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Filter
 
 import config
-from keyboards.inline_keyboards import get_admin_start_keyboard
+from keyboards.inline_keyboards import get_admin_start_keyboard, get_back_to_menu_keyboard
 from database.status_handler import set_bot_status, get_bot_status, get_all_user_message_ids
 from handlers.user_handlers import get_start_message_text
 
@@ -47,7 +47,7 @@ async def toggle_bot_status(callback: types.CallbackQuery, bot: Bot):
     asyncio.create_task(update_all_users(bot))
 
 async def update_all_users(bot: Bot):
-    from keyboards.inline_keyboards import get_user_start_keyboard, get_admin_start_keyboard
+    from keyboards.inline_keyboards import get_user_start_keyboard
     
     all_users = get_all_user_message_ids()
     if not all_users:
@@ -85,7 +85,7 @@ async def update_all_users(bot: Bot):
 
 @router.callback_query(F.data == "broadcast", IsAdmin())
 async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("Please send the message you want to broadcast to all users. Markdown is supported.")
+    await callback.message.edit_text("Please send the message you want to broadcast to all users. Markdown is supported.", reply_markup=get_back_to_menu_keyboard())
     await state.set_state(BroadcastState.awaiting_message)
     await callback.answer()
 
@@ -93,12 +93,19 @@ async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
 async def process_broadcast_message(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
     
+    # Delete user's message
+    try:
+        await message.delete()
+    except TelegramBadRequest:
+        pass
+    
     all_users = get_all_user_message_ids()
+    
     if not all_users:
-        await message.answer("⚠️ No registered users found to broadcast to.")
+        await message.answer("⚠️ No registered users found to broadcast to.", reply_markup=get_back_to_menu_keyboard())
         return
         
-    await message.answer(f"Starting broadcast to {len(all_users)} users...")
+    status_msg = await message.answer(f"Starting broadcast to {len(all_users)} users...")
     
     success_count = 0
     fail_count = 0
@@ -116,4 +123,4 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
         except TelegramBadRequest:
             fail_count += 1
             
-    await message.answer(f"📢 Broadcast Complete!\n\n✅ Sent to: {success_count} users\n❌ Failed for: {fail_count} users")
+    await status_msg.edit_text(f"📢 Broadcast Complete!\n\n✅ Sent to: {success_count} users\n❌ Failed for: {fail_count} users", reply_markup=get_back_to_menu_keyboard())

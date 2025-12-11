@@ -5,7 +5,7 @@ from config import WEB_APP_URL
 def get_user_start_keyboard() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⚡️ Start Check", callback_data="check_accounts_save")
+            InlineKeyboardButton(text="⚡️ Start Check (Save)", callback_data="check_accounts_save")
         ],
         [
             InlineKeyboardButton(text="🌐 Open WebApp", web_app={"url": WEB_APP_URL})
@@ -28,6 +28,14 @@ def get_admin_start_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text=toggle_button_text, callback_data="toggle_status")
+        ]
+    ])
+    return keyboard
+
+def get_back_to_menu_keyboard() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="back_to_menu")
         ]
     ])
     return keyboard

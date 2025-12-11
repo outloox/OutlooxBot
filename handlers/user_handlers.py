@@ -7,10 +7,11 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 
 import config
-from keyboards.inline_keyboards import get_user_start_keyboard, get_admin_start_keyboard
+from keyboards.inline_keyboards import get_user_start_keyboard, get_admin_start_keyboard, get_back_to_menu_keyboard
 from database.status_handler import save_user_start_message, get_user_start_message, get_bot_status
 from utils.message_utils import send_or_edit_message
 from utils.account_checker import check_account, upload_to_firebase, format_result_message
+import asyncio
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
     await state.clear()
     user_id = message.from_user.id
     
+    # Delete user's /start message
     try:
         await message.delete()
     except TelegramBadRequest:
@@ -68,9 +70,23 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
     if sent_message:
         save_user_start_message(user_id, sent_message.message_id)
 
+@router.callback_query(F.data == "back_to_menu")
+async def back_to_menu(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    user_id = callback.from_user.id
+    
+    text = get_start_message_text(user_id, callback.from_user.full_name)
+    keyboard = get_admin_start_keyboard() if user_id in config.ADMIN_IDS else get_user_start_keyboard()
+    
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    except TelegramBadRequest as e:
+        if "message is not modified" not in str(e):
+            raise e
+    await callback.answer()
+
 @router.callback_query(F.data == "check_status")
 async def handle_status_check(callback: types.CallbackQuery):
-    # This callback is now only used to refresh the message content
     await callback.answer("Refreshing status...", show_alert=False)
     
     user_id = callback.from_user.id
@@ -78,10 +94,8 @@ async def handle_status_check(callback: types.CallbackQuery):
     keyboard = get_admin_start_keyboard() if user_id in config.ADMIN_IDS else get_user_start_keyboard()
         
     try:
-        # Use edit_message_text to ensure the text is updated, which is the primary goal
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
     except TelegramBadRequest as e:
-        # Ignore "message is not modified" error
         if "message is not modified" not in str(e):
             raise e
 
@@ -97,23 +111,30 @@ async def start_account_check(callback: types.CallbackQuery, state: FSMContext):
     
     action_text = "and save to database" if save_to_db else "without saving"
     
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"✅ **Check Mode Activated!**\n\n"
         f"Please send accounts now in the format (email:password). Multiple accounts can be sent in one message.\n\n"
-        f"Accounts will be checked {action_text}."
+        f"Accounts will be checked {action_text}.",
+        reply_markup=get_back_to_menu_keyboard()
     )
     await state.set_state(AccountCheckStates.awaiting_accounts)
     await callback.answer()
 
 @router.message(AccountCheckStates.awaiting_accounts)
-async def process_accounts(message: types.Message, state: FSMContext):
+async def process_accounts(message: types.Message, bot: Bot, state: FSMContext):
     data = await state.get_data()
     save_to_db = data.get("save_to_db", False)
     
     accounts = re.findall(r'([\w\.-]+@[\w\.-]+\.[\w\.-]+):(.+)', message.text)
     
+    # Delete user's message
+    try:
+        await message.delete()
+    except TelegramBadRequest:
+        pass
+    
     if not accounts:
-        await message.reply("❌ **Invalid Format!**\n\nPlease send accounts in the correct format: `email:password`.")
+        await message.reply("❌ **Invalid Format!**\n\nPlease send accounts in the correct format: `email:password`.", reply_markup=get_back_to_menu_keyboard())
         return
 
     await state.clear()
@@ -126,7 +147,7 @@ async def process_accounts(message: types.Message, state: FSMContext):
         
     await asyncio.gather(*tasks)
     
-    await status_msg.edit_text("✅ **Check Complete!**\n\nResults have been sent in separate messages.", reply_markup=None)
+    await status_msg.edit_text("✅ **Check Complete!**\n\nResults have been sent in separate messages.", reply_markup=get_back_to_menu_keyboard())
 
 async def process_single_account(email: str, password: str, save_to_db: bool, chat_id: int, status_message_id: int):
     details, error = await check_account(email, password)
