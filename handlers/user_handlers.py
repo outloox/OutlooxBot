@@ -30,7 +30,7 @@ def get_start_message_text(user_id: int, full_name: str) -> str:
             "➖➖➖➖➖➖➖➖➖➖➖➖\n"
             f"🤖 **Bot Status:** {status_emoji} *{status_text}*\n"
             "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "Welcome, Admin. Manage bot status, checking operations, and broadcasting from here."
+            "Welcome, Admin. Manage bot status, checking operations, and broadcasting from here.\n\nType /start to return to this menu."
         )
     else:
         text = (
@@ -38,7 +38,7 @@ def get_start_message_text(user_id: int, full_name: str) -> str:
             "➖➖➖➖➖➖➖➖➖➖➖➖\n"
             f"🤖 **Bot Status:** {status_emoji} *{status_text}*\n"
             "➖➖➖➖➖➖➖➖➖➖➖➖\n"
-            "Use the buttons below to start checking accounts or access our WebApp.\n\n"
+            "Use the buttons below to start checking accounts or access our WebApp.\n\nType /start to return to this menu."
             "*Note: The bot is designed for high-efficiency account checking.*"
         )
     return text

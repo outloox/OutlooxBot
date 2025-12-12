@@ -113,6 +113,7 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
     for user_id_str in all_users.keys():
         try:
             await bot.copy_message(
+                parse_mode="Markdown",
                 chat_id=int(user_id_str),
                 from_chat_id=message.chat.id,
                 message_id=message.message_id,
@@ -123,4 +124,4 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
         except TelegramBadRequest:
             fail_count += 1
             
-    await status_msg.edit_text(f"📢 Broadcast Complete!\n\n✅ Sent to: {success_count} users\n❌ Failed for: {fail_count} users", reply_markup=get_back_to_menu_keyboard())
+    await status_msg.edit_text(f"📢 Broadcast Complete!\n\n✅ Sent to: {success_count} users\n❌ Failed for: {fail_count} users", reply_markup=get_back_to_menu_keyboard(), parse_mode="Markdown")

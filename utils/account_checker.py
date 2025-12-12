@@ -10,6 +10,7 @@ import aiohttp
 import aiofiles
 
 from config import COMMON_COUNTRY_NAMES, SERVICE_DOMAINS, REQUEST_TIMEOUT, FIREBASE_DB_URL, BACKUP_FILE_PATH
+from utils.message_utils import escape_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +151,8 @@ async def save_to_backup_file(account_data: Dict):
         logger.error(f"Failed to write to backup file: {e}")
 
 def format_result_message(account_data: Dict, save_to_db: bool) -> str:
-    name_str = account_data.get("name", "N/A")
-    services_str = ", ".join(account_data.get("services", [])) or "No linked services found"
+    name_str = escape_markdown(account_data.get("name", "N/A"))
+    services_str = escape_markdown(", ".join(account_data.get("services", [])) or "No linked services found")
     country_name, country_flag = get_country_name_and_flag(account_data.get('country', 'Unknown'))
     
     status_line = "✅ **Valid Account Details**"
@@ -161,8 +162,8 @@ def format_result_message(account_data: Dict, save_to_db: bool) -> str:
     return (f"{status_line}\n"
             f"➖➖➖➖➖➖➖➖➖➖➖➖\n"
             f"👤 **Name:** {name_str}\n"
-            f"📧 **Email:** `{account_data['email']}`\n"
-            f"🔑 **Password:** `{account_data['password']}`\n"
+            f"📧 **Email:** `{escape_markdown(account_data['email'])}`\n"
+            f"🔑 **Password:** `{escape_markdown(account_data['password'])}`\n"
             f"🌍 **Country:** {country_flag} *{country_name}*\n"
             f"🔗 **Linked Services:** {services_str}\n"
             f"➖➖➖➖➖➖➖➖➖➖➖➖")
