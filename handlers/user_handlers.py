@@ -48,11 +48,7 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
     await state.clear()
     user_id = message.from_user.id
     
-    # Delete user's /start message
-    try:
-        await message.delete()
-    except TelegramBadRequest:
-        pass
+    # User's /start message is kept
 
     existing_message_id = get_user_start_message(user_id)
     
@@ -127,11 +123,7 @@ async def process_accounts(message: types.Message, bot: Bot, state: FSMContext):
     
     accounts = re.findall(r'([\w\.-]+@[\w\.-]+\.[\w\.-]+):(.+)', message.text)
     
-    # Delete user's message
-    try:
-        await message.delete()
-    except TelegramBadRequest:
-        pass
+    # User's message is kept
     
     if not accounts:
         await message.reply("❌ **Invalid Format!**\n\nPlease send accounts in the correct format: `email:password`.", reply_markup=get_back_to_menu_keyboard())

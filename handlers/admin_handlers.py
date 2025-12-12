@@ -93,11 +93,7 @@ async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
 async def process_broadcast_message(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
     
-    # Delete user's message
-    try:
-        await message.delete()
-    except TelegramBadRequest:
-        pass
+    # User's message is kept
     
     all_users = get_all_user_message_ids()
     
