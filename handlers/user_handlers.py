@@ -2,7 +2,7 @@ import logging
 import re
 from aiogram import F, Router, types, Bot
 from aiogram.filters import CommandStart
-from aiogram.fsm.context import FSMContext
+from aiogram.fsm.context import FSMContext, NoState
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 
