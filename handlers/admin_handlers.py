@@ -109,7 +109,6 @@ async def process_broadcast_message(message: types.Message, state: FSMContext, b
     for user_id_str in all_users.keys():
         try:
             await bot.copy_message(
-                parse_mode="Markdown",
                 chat_id=int(user_id_str),
                 from_chat_id=message.chat.id,
                 message_id=message.message_id,
