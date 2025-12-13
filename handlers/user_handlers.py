@@ -2,7 +2,7 @@ import logging
 import re
 from aiogram import F, Router, types, Bot
 from aiogram.filters import CommandStart
-from aiogram.fsm.context import FSMContext, NoState
+from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 
@@ -47,7 +47,7 @@ def get_start_message_text(user_id: int, full_name: str) -> str:
 async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
     try:
         await state.clear()
-    except NoState:
+    except Exception:
         pass
     user_id = message.from_user.id
     
@@ -73,7 +73,7 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
 async def back_to_menu(callback: types.CallbackQuery, state: FSMContext):
     try:
         await state.clear()
-    except NoState:
+    except Exception:
         pass
     user_id = callback.from_user.id
     
@@ -137,7 +137,7 @@ async def process_accounts(message: types.Message, bot: Bot, state: FSMContext):
 
     try:
         await state.clear()
-    except NoState:
+    except Exception:
         pass
     
     status_msg = await message.reply(f"⏳ **Starting check for {len(accounts)} accounts...**")
