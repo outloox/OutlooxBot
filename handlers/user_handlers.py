@@ -45,7 +45,10 @@ def get_start_message_text(user_id: int, full_name: str) -> str:
 
 @router.message(CommandStart())
 async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
-    await state.clear()
+    try:
+        await state.clear()
+    except NoState:
+        pass
     user_id = message.from_user.id
     
     # User's /start message is kept
@@ -68,7 +71,10 @@ async def handle_start(message: types.Message, bot: Bot, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_menu")
 async def back_to_menu(callback: types.CallbackQuery, state: FSMContext):
-    await state.clear()
+    try:
+        await state.clear()
+    except NoState:
+        pass
     user_id = callback.from_user.id
     
     text = get_start_message_text(user_id, callback.from_user.full_name)
@@ -129,7 +135,10 @@ async def process_accounts(message: types.Message, bot: Bot, state: FSMContext):
         await message.reply("❌ **Invalid Format!**\n\nPlease send accounts in the correct format: `email:password`.", reply_markup=get_back_to_menu_keyboard())
         return
 
-    await state.clear()
+    try:
+        await state.clear()
+    except NoState:
+        pass
     
     status_msg = await message.reply(f"⏳ **Starting check for {len(accounts)} accounts...**")
     
